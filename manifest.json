@@ -1,0 +1,10 @@
+{
+    "id": "obsidian-dollar-smith",
+    "name": "Dollar Smith",
+    "version": "0.1.0",
+    "minAppVersion": "1.0.0",
+    "description": "Safely normalize LaTeX-style math delimiters using CodeMirror 6",
+    "author": "",
+    "authorUrl": "",
+    "isDesktopOnly": false
+}
