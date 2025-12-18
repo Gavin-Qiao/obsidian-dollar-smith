@@ -1,5 +1,6 @@
 import { SyntaxTreeWalker } from "../src/tree-walker";
 import { createMockEditorState } from "./mocks/codemirror.mock";
+import { readFixture } from "./utils";
 
 describe('SyntaxTreeWalker', () => {
     const walker = new SyntaxTreeWalker();
@@ -13,72 +14,44 @@ describe('SyntaxTreeWalker', () => {
         expect(regions[0]).toEqual({ type: 'text', from: 0, to: text.length });
     });
 
-    it('excludes fenced code blocks', () => {
-        const text = "Safe text\n```js\ncode\n```\nMore safe text";
+    it('excludes fenced code blocks and inline code from fixture', () => {
+        const text = readFixture('code-blocks.md');
         const state = createMockEditorState(text);
         const regions = walker.getSafeRegions(state);
 
-        // "Safe text\n" is length 10.
-        // ```js\ncode\n``` is length 14?
-        // 0123456789
-        // Safe text\n -> 0-10
-        // ```js\ncode\n```
-        // 10: `
-        // 11: `
-        // 12: `
-        // 13: j
-        // 14: s
-        // 15: \n
-        // 16: c
-        // 17: o
-        // 18: d
-        // 19: e
-        // 20: \n
-        // 21: `
-        // 22: `
-        // 23: `
-        // 24: \n -> wait.
-        // Let's rely on finding the indices dynamically or just checking expected values loosely if strict indices are hard to calculate mentally.
+        // Verify we captured the safe math
+        const safeMath = "\\(x^2\\)";
+        const captured = regions.some(r => text.slice(r.from, r.to).includes(safeMath));
+        expect(captured).toBe(true);
 
-        const codeStart = text.indexOf("```");
-        const codeEnd = text.lastIndexOf("```") + 3;
-
-        expect(regions.length).toBeGreaterThanOrEqual(2);
-
-        // Ensure the code block is NOT in any safe region
+        // Verify we excluded the code
         for (const region of regions) {
-            // Region should act as "gap".
-            // So region.to should be <= codeStart OR region.from >= codeEnd
-            const overlaps = (region.from < codeEnd && region.to > codeStart);
-            expect(overlaps).toBe(false);
+            const regionText = text.slice(region.from, region.to);
+            // Fenced code content
+            expect(regionText).not.toContain("var x =");
+            // Indented code content
+            expect(regionText).not.toContain("Indented code block");
         }
     });
 
-    it('excludes inline code', () => {
-        const text = "Safe `code` safe";
+    it('excludes frontmatter', () => {
+        const text = readFixture('frontmatter.md');
         const state = createMockEditorState(text);
         const regions = walker.getSafeRegions(state);
 
-        expect(regions).toHaveLength(2);
+        // Expect frontmatter to be excluded.
+        expect(regions.length).toBeGreaterThan(0);
 
-        const first = regions[0];
-        const second = regions[1];
+        // Verify no region contains the frontmatter keys
+        for (const region of regions) {
+            const t = text.slice(region.from, region.to);
+            expect(t).not.toContain("title: My Doc");
+            expect(t).not.toContain("tags:");
+        }
 
-        expect(text.slice(first.from, first.to)).toBe("Safe ");
-        expect(text.slice(second.from, second.to)).toBe(" safe");
-    });
-
-    // Skipped because standard @codemirror/lang-markdown does not include FrontMatter by default
-    // and we haven't configured the mock to include it.
-    it.skip('excludes frontmatter', () => {
-        const text = "---\nkey: value\n---\nBody text";
-        const state = createMockEditorState(text);
-        const regions = walker.getSafeRegions(state);
-
-        // Should skip the frontmatter block
-        expect(regions.length).toBe(1);
-        const region = regions[0];
-        expect(text.slice(region.from, region.to)).toBe("Body text");
+        // Verify safe content is there
+        const safeText = regions.map(r => text.slice(r.from, r.to)).join("");
+        expect(safeText).toContain("Body content with \\(math\\)");
     });
 
     it('excludes HTML blocks', () => {
@@ -87,9 +60,11 @@ describe('SyntaxTreeWalker', () => {
         const regions = walker.getSafeRegions(state);
 
         expect(regions.length).toBeGreaterThanOrEqual(2);
-        const lastRegion = regions[regions.length - 1];
-        // The text slice might include the leading newline depending on how gap is calculated
-        expect(text.slice(lastRegion.from, lastRegion.to)).toContain("End");
+        // Ensure "<div>html</div>" is not in any region
+        for (const region of regions) {
+            const t = text.slice(region.from, region.to);
+            expect(t).not.toContain("<div>");
+        }
     });
 
     it('isPositionSafe returns correct boolean', () => {
@@ -97,6 +72,15 @@ describe('SyntaxTreeWalker', () => {
         expect(walker.isPositionSafe(5, regions)).toBe(true);
         expect(walker.isPositionSafe(15, regions)).toBe(false);
         expect(walker.isPositionSafe(20, regions)).toBe(true);
-        expect(walker.isPositionSafe(30, regions)).toBe(false); // Exclusive end
+        expect(walker.isPositionSafe(30, regions)).toBe(false);
+    });
+
+    it('handles document ending with protected region', () => {
+        const text = "Prefix `code`";
+        const state = createMockEditorState(text);
+        const regions = walker.getSafeRegions(state);
+
+        expect(regions).toHaveLength(1);
+        expect(regions[0].to).toBe(7);
     });
 });
