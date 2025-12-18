@@ -4,6 +4,8 @@ import {
     DEFAULT_SETTINGS,
     DollarSmithSettingTab,
 } from "./settings";
+import { MathNormalizerService } from "./normalizer";
+import { EditorAdapter, getEditorView } from "./editor-adapter";
 
 export default class DollarSmithPlugin extends Plugin {
     settings: DollarSmithSettings = DEFAULT_SETTINGS;
@@ -67,11 +69,30 @@ export default class DollarSmithPlugin extends Plugin {
     }
 
     private normalizeCurrentNote(editor: Editor, view: MarkdownView): void {
-        // TODO: Implement normalization pipeline in Phase 2
-        // This will be wired to the NormalizerService once implemented
+        const editorView = getEditorView(editor);
+        if (!editorView) {
+            console.error("Dollar Smith: Could not get EditorView");
+            return;
+        }
 
-        if (this.settings.notifyOnComplete) {
-            new Notice("Dollar Smith: Normalization not yet implemented");
+        const normalizer = new MathNormalizerService(this.settings.strictMode);
+        const result = normalizer.normalize(editorView.state);
+
+        const adapter = new EditorAdapter();
+        const success = adapter.applyEdits(editorView, result.edits);
+
+        if (success && this.settings.notifyOnComplete) {
+            if (result.stats.converted > 0) {
+                new Notice(`Dollar Smith: Converted ${result.stats.converted} math expressions`);
+            } else if (result.stats.totalFound > 0 && result.stats.skipped > 0) {
+                new Notice(`Dollar Smith: Skipped ${result.stats.skipped} expressions (strict mode)`);
+            } else if (result.stats.totalFound === 0) {
+                new Notice("Dollar Smith: No math delimiters found");
+            }
+        }
+
+        if (result.errors.length > 0) {
+            console.debug("Dollar Smith: Validation errors encountered", result.errors);
         }
     }
 }
