@@ -38,3 +38,22 @@ export interface ValidationError {
   message: string;
   position?: number;  // Relative to math content
 }
+
+// Task 06: Normalizer Service Types
+export interface NormalizationEdit {
+  from: number;         // Start position to replace
+  to: number;           // End position to replace
+  insert: string;       // Replacement text
+  original: string;     // Original text (for debugging/undo)
+  delimiterType: DelimiterType;
+}
+
+export interface NormalizationResult {
+  edits: NormalizationEdit[];
+  stats: {
+    totalFound: number;
+    converted: number;
+    skipped: number;
+  };
+  errors: ValidationError[];
+}
