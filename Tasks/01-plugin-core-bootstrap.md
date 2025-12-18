@@ -49,7 +49,7 @@ this.addRibbonIcon('dollar-sign', 'Normalize Math', (evt: MouseEvent) => {
 ## Dependencies
 - Obsidian Plugin API
 - Settings module (Task 02)
-- Normalizer service (Task 04)
+- Normalizer service (Task 06)
 
 ## Acceptance Criteria
 - [ ] Plugin loads without errors

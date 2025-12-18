@@ -50,12 +50,10 @@ This task sets up the development toolchain including TypeScript compilation, es
     "module": "ESNext",
     "target": "ES6",
     "allowJs": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
+    "strict": true,
     "moduleResolution": "node",
     "importHelpers": true,
     "isolatedModules": true,
-    "strictNullChecks": true,
     "lib": ["DOM", "ES5", "ES6", "ES7"]
   },
   "include": ["**/*.ts"]
@@ -70,7 +68,7 @@ import builtins from "builtin-modules";
 
 const prod = process.argv[2] === "production";
 
-esbuild.build({
+const context = await esbuild.context({
   entryPoints: ["src/main.ts"],
   bundle: true,
   external: [
@@ -86,8 +84,14 @@ esbuild.build({
   sourcemap: prod ? false : "inline",
   treeShaking: true,
   outfile: "main.js",
-  watch: !prod,
-}).catch(() => process.exit(1));
+});
+
+if (prod) {
+  await context.rebuild();
+  process.exit(0);
+} else {
+  await context.watch();
+}
 ```
 
 ### 4. Plugin Manifest (`manifest.json`)
