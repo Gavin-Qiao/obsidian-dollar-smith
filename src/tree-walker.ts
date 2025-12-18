@@ -12,9 +12,7 @@ const PROTECTED_NODES = new Set([
     "FrontMatter",
     "LinkURL",
     "URL", // Common name for URL part
-    "Image", // Covers the whole image syntax ![alt](url) ? Or just parts?
-             // Lezer markdown Image usually wraps the whole thing.
-             // If we want to protect the whole image syntax (which we probably do), Image is correct.
+    "Image",
 ]);
 
 export class SyntaxTreeWalker {
@@ -39,39 +37,12 @@ export class SyntaxTreeWalker {
         // Sort by start position
         protectedRegions.sort((a, b) => a.from - b.from);
 
-        // Merge overlapping or adjacent regions
-        const mergedProtected: { from: number; to: number }[] = [];
-        if (protectedRegions.length > 0) {
-            let current = protectedRegions[0];
-            for (let i = 1; i < protectedRegions.length; i++) {
-                const next = protectedRegions[i];
-                if (next.from < current.to) { // Overlap (shouldn't happen with tree iteration but good to be safe)
-                     // If nested, next.to might be inside current.to or outside.
-                     // But we skipped children, so nested nodes shouldn't be visited?
-                     // Wait, iterate visits parents then children.
-                     // If I return false, I skip children.
-                     // But could there be overlapping siblings? No.
-                     // What about nodes that start at same position?
-                     // With 'enter', we see the outer one first. We return false, so we don't see inner ones.
-                     // So we shouldn't have overlaps effectively, unless the parser produces them.
-                     // But 'CodeBlock' might be adjacent to another.
-                     // Actually, if we have disjoint regions, we are good.
-                     // But let's keep the merge logic for safety and gap calculation.
-                     if (next.to > current.to) current.to = next.to;
-                } else {
-                    mergedProtected.push(current);
-                    current = next;
-                }
-            }
-            mergedProtected.push(current);
-        }
-
         // Invert to get safe regions
         const safeRegions: TextRegion[] = [];
         let cursor = 0;
         const docLength = state.doc.length;
 
-        for (const region of mergedProtected) {
+        for (const region of protectedRegions) {
             if (region.from > cursor) {
                 safeRegions.push({
                     type: 'text',
